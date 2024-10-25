@@ -187,8 +187,17 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2024-10-25 10:50:39" itemprop="dateModified" datetime="2024-10-25T10:50:39+08:00">2024-10-25</time>
+                <time title="修改时间：2024-10-25 14:29:10" itemprop="dateModified" datetime="2024-10-25T14:29:10+08:00">2024-10-25</time>
               </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%BD%91%E7%BB%9C%E7%9F%A5%E8%AF%86/" itemprop="url" rel="index"><span itemprop="name">网络知识</span></a>
+                </span>
+            </span>
 
           
 
@@ -201,20 +210,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <hr>
-<hr>
-<p>categories:   </p>
-<ul>
-<li><strong>网络知识</strong></li>
-</ul>
-<hr>
-<hr>
-<p>tags:  </p>
-<ul>
-<li><strong>网络丢包问题排查</strong></li>
-</ul>
-<hr>
-<h2 id="什么是丢包？"><a href="#什么是丢包？" class="headerlink" title="什么是丢包？"></a>什么是丢包？</h2><p>数据在Internet上是以数据包为单位传输的，单位为字节，数据在⽹络上传输，受⽹络设备，6⽹络质量等原因的影响，使得接收到的数据⼩于发送出去的数据，造成丢包。</p>
+          <h2 id="什么是丢包？"><a href="#什么是丢包？" class="headerlink" title="什么是丢包？"></a>什么是丢包？</h2><p>数据在Internet上是以数据包为单位传输的，单位为字节，数据在⽹络上传输，受⽹络设备，6⽹络质量等原因的影响，使得接收到的数据⼩于发送出去的数据，造成丢包。</p>
 <h2 id="数据包接收、发送原理"><a href="#数据包接收、发送原理" class="headerlink" title="数据包接收、发送原理"></a>数据包接收、发送原理</h2><p><img src="/images/640.jpg"></p>
 <h3 id="发送数据包"><a href="#发送数据包" class="headerlink" title="发送数据包"></a>发送数据包</h3><p><img src="/images/640.png"></p>
 <p>1.应⽤程序的数据包，在TCP层增加TCP报⽂头，形成可传输的数据包。<br>2.在IP层增加IP报头，形成IP报⽂。<br>3.经过数据⽹卡驱动程序将IP包再添加14字节的MAC头，构成frame（暂⽆CRC），frame（暂⽆CRC）中含有发送端和接收端的MAC地址。<br>4.驱动程序将frame（暂⽆CRC）拷贝到⽹卡的缓冲区，由⽹卡处理。<br>5.⽹卡为frame（暂⽆CRC）添加头部同步信息和CRC校验，将其封装为可以发送的packet，然后再发送到⽹线上，这样说就完成了⼀个IP报⽂的发送了，所有连接到这个⽹线上的⽹卡都可以看到该packet。</p>
@@ -882,6 +878,18 @@
           <span class="site-state-item-count">2</span>
           <span class="site-state-item-name">日志</span>
         </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
 </div>
