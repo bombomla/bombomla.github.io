@@ -187,6 +187,197 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.kakasu.cn/2024/11/13/%E4%B8%80%E6%AC%A1%E8%AF%A1%E5%BC%82%E5%AE%B9%E5%99%A8%E7%BD%91%E7%BB%9C%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="你的菜根">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="你的菜根">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2024/11/13/%E4%B8%80%E6%AC%A1%E8%AF%A1%E5%BC%82%E5%AE%B9%E5%99%A8%E7%BD%91%E7%BB%9C%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/" class="post-title-link" itemprop="url">一次诡异容器网络问题排查</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-11-13 20:11:47" itemprop="dateCreated datePublished" datetime="2024-11-13T20:11:47+08:00">2024-11-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-11-19 14:29:13" itemprop="dateModified" datetime="2024-11-19T14:29:13+08:00">2024-11-19</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%BD%91%E7%BB%9C%E7%9F%A5%E8%AF%86/" itemprop="url" rel="index"><span itemprop="name">网络知识</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h2 id="问题现象"><a href="#问题现象" class="headerlink" title="问题现象:"></a>问题现象:</h2><p>新建的k8s集群，在主机节点上无法访问本主机的podip。</p>
+<h2 id="排查过程"><a href="#排查过程" class="headerlink" title="排查过程"></a>排查过程</h2><p>通过进入容器的网络命令空间抓包，发现容器里面能收到主机上的ping包，并且返回出去了,但是ping的界面一直无响应。</p>
+<p><code>tcpdump -i eth0 icmp -ne</code></p>
+<p>查看主机的ip信息，主机上有多个ip，容器收到的ping ip和主机建立连接的calico ip并非同一ip。</p>
+<p>容器回包的流程应该是 容器eth0接口——&gt; calico calixxxx网卡—-&gt;根据主机上路由规则转发应用侧。</p>
+<p>通过tcpdump 抓取calico calixxx网卡发现也可以正常收到报文，那么问题就可能是路由规则或者是iptables防火墙问题。</p>
+<p><code>iptables -nL</code>查看并未发现有drop的相关规则，而且在容器中ping主机上的ip，有2个ip是可以正常通信，2个ip无法通信。</p>
+<p><code>ip route show</code>主机路由和容器路由并无其他异常</p>
+<p><code>ip rule show</code>查看主机的路由策略，发现有两条额外的策略路由，正好是无法ping通的ip地址。</p>
+<p><img src="/images/aa4.png"></p>
+<p>这两条策略路由说明来自这两个ip的报文，都从路由表是100或者101的路由出去。</p>
+<p><code>ip route show table 100</code></p>
+<p>规则路由中还有其他三种路由表<strong>local、main、default</strong></p>
+<p><strong>local</strong>：路由表local包含本机路由及广播信息。例如，在本机上执行ssh 127.0.0.1时，就会参考这份路由表的内容，在正常情况下，只要配置好网卡的网络设置，就会自动生成local路由表的内容，我们应该也不必修改其内容。</p>
+<p><strong>main</strong>：使用传统命令route -n所看到的路由表就是main的内容。Linux系统在默认情况下使用这份路由表的内容来传输数据包，因此，其内容极为重要，在正常情况下，只要配置好网卡的网络设置，就会自动生成main路由表的内容。</p>
+<p><strong>default</strong>：最后是default路由表，这个路由表在默认情况下内容为空；除非有特别的要求，否则保持其内容为空即可。</p>
+<p><strong>因为路由规则中的另外两个的优先级100、101大于main的优先级，所以在主机上ping容器的ip优先使用id是100的优先级路由ip，这条规则路由会把容器的报文转发到其指定路由上，从而导致ping容器ip无法收到报文。</strong></p>
+<h2 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h2><p>新建一条优先级更高的规则路由，把目标是容器网段的规则路由转发主路由表中。</p>
+<p><code>ip rule add to 172.20.0.0/16 table main prio 99</code></p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.kakasu.cn/2024/11/08/ETCD%E5%8D%95%E8%8A%82%E7%82%B9%E6%89%A9%E5%AE%B9%E6%AD%A5%E9%AA%A4/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="你的菜根">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="你的菜根">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2024/11/08/ETCD%E5%8D%95%E8%8A%82%E7%82%B9%E6%89%A9%E5%AE%B9%E6%AD%A5%E9%AA%A4/" class="post-title-link" itemprop="url">ETCD单节点扩容步骤</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-11-08 15:35:59" itemprop="dateCreated datePublished" datetime="2024-11-08T15:35:59+08:00">2024-11-08</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-11-19 14:37:25" itemprop="dateModified" datetime="2024-11-19T14:37:25+08:00">2024-11-19</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p> <strong>单节点的etcd实例扩容成3节点集群模式</strong> </p>
+<h2 id="1、环境信息"><a href="#1、环境信息" class="headerlink" title="1、环境信息:"></a>1、环境信息:</h2><p>节点1: etcd1 192.168.122.222</p>
+<p>节点2： etcd2 192.168.122.247</p>
+<p>节点3： etcd3 192.168.122.173</p>
+<h2 id="2、制作etcd自签名证书"><a href="#2、制作etcd自签名证书" class="headerlink" title="2、制作etcd自签名证书"></a>2、制作etcd自签名证书</h2><p>根据以下方法制作etcd需要的证书:</p>
+<p><a href="https://www.kakasu.cn/2024/11/07/%E5%88%9B%E5%BB%BA%E8%87%AA%E7%AD%BE%E5%90%8D%E8%AF%81%E4%B9%A6%E5%87%A0%E7%A7%8D%E6%96%B9%E5%BC%8F/">创建自签名证书几种方式 | 你的菜根</a></p>
+<h2 id="3、启动etcd和扩容"><a href="#3、启动etcd和扩容" class="headerlink" title="3、启动etcd和扩容"></a>3、启动etcd和扩容</h2><p><strong>扩容etcd顺序是：</strong> 1节点—&gt;2节点—&gt;3节点</p>
+<h3 id="3-1-启动单etcd节点"><a href="#3-1-启动单etcd节点" class="headerlink" title="3.1 启动单etcd节点"></a>3.1 启动单etcd节点</h3><p>启动命令:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">etcd \</span><br><span class="line">--name=etcd1 \</span><br><span class="line">--cert-file=/etc/etcdca/etcd.pem \</span><br><span class="line">--key-file=/etc/etcdca/etcd-key.pem \</span><br><span class="line">--peer-cert-file=/etc/etcdca/etcd.pem \</span><br><span class="line">--peer-key-file=/etc/etcdca/etcd-key.pem \</span><br><span class="line">--trusted-ca-file=/etc/etcdca/ca.pem \</span><br><span class="line">--peer-trusted-ca-file=/etc/etcdca/ca.pem \</span><br><span class="line">--initial-advertise-peer-urls=https://192.168.122.222:2380 \</span><br><span class="line">--listen-peer-urls=https://192.168.122.222:2380 \</span><br><span class="line">--listen-client-urls=https://192.168.122.222:2379,http://127.0.0.1:2379 \</span><br><span class="line">--advertise-client-urls=https://192.168.122.222:2379 \</span><br><span class="line">--initial-cluster-token=etcd-cluster-0 \</span><br><span class="line">--initial-cluster=etcd1=https://192.168.122.222:2380 \</span><br><span class="line">--initial-cluster-state=new \</span><br><span class="line">--data-dir=/data/etcdnew \</span><br><span class="line">--wal-dir= \</span><br><span class="line">--snapshot-count=50000 \</span><br><span class="line">--auto-compaction-retention=1 \</span><br><span class="line">--auto-compaction-mode=periodic \</span><br><span class="line">--max-request-bytes=10485760 \</span><br><span class="line">--log-level=info</span><br></pre></td></tr></table></figure>
+
+<p>检查启动是否完成:  <code>etcdctl member list</code></p>
+<h3 id="3-2-扩容etcd成2节点"><a href="#3-2-扩容etcd成2节点" class="headerlink" title="3.2 扩容etcd成2节点"></a>3.2 扩容etcd成2节点</h3><p>因为原集群时一个节点的集群，在新的成员启动前集群无法继续工作，，因为它需要两个成员作为galosh才能在一致性上达成一致。这个行为仅仅发生在 <code>etcdctl member add</code> 影响集群和新成员成功建立连接到已有成员的时间内。</p>
+<p>在etcd1上操作命令把etcd2加入到成员中：</p>
+<p><code>etcdctl member add etcd2 --peer-urls=&quot;https://192.168.122.247:2380&quot;</code></p>
+<p><strong>加入新节点后此时整个集群处于不可用状态，等到etcd2启动完选好lead后集群才能正常提供服务。</strong></p>
+<p>etcd2启动命令:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">etcd \</span><br><span class="line">--name=etcd2 \</span><br><span class="line">--cert-file=/etc/etcdca/etcd.pem \</span><br><span class="line">--key-file=/etc/etcdca/etcd-key.pem \</span><br><span class="line">--peer-cert-file=/etc/etcdca/etcd.pem \</span><br><span class="line">--peer-key-file=/etc/etcdca/etcd-key.pem \</span><br><span class="line">--trusted-ca-file=/etc/etcdca/ca.pem \</span><br><span class="line">--peer-trusted-ca-file=/etc/etcdca/ca.pem \</span><br><span class="line">--initial-advertise-peer-urls=https://192.168.122.247:2380 \</span><br><span class="line">--listen-peer-urls=https://192.168.122.247:2380 \</span><br><span class="line">--listen-client-urls=https://192.168.122.247:2379,http://127.0.0.1:2379 \</span><br><span class="line">--advertise-client-urls=https://192.168.122.247:2379 \</span><br><span class="line">--initial-cluster-token=etcd-cluster-0 \</span><br><span class="line">--initial-cluster=etcd1=https://192.168.122.222:2380,etcd2=https://192.168.122.247:2380 \</span><br><span class="line">--initial-cluster-state=existing \</span><br><span class="line">--data-dir=/data/etcdnew \</span><br><span class="line">--wal-dir= \</span><br><span class="line">--snapshot-count=50000 \</span><br><span class="line">--auto-compaction-retention=1 \</span><br><span class="line">--auto-compaction-mode=periodic \</span><br><span class="line">--max-request-bytes=10485760 \</span><br><span class="line">--log-level=info</span><br></pre></td></tr></table></figure>
+
+<p>因为是已存在集群–initial-cluster-state&#x3D;existing   –initial-cluster中把节点1的地址也加入进去。</p>
+<p>加入成功后查看集群成员:<code>etcdctl member list</code></p>
+<p>查看集群状态: <code>etcdctl --endpoints=https://192.168.122.247:2379,https://192.168.122.222:2379 --cacert=/etc/etcdca/ca.pem --cert=/etc/etcdca/etcd.pem --key=/etc/etcdca/etcd-key.pem --write-out=table endpoint status</code></p>
+<p><img src="/%5Cimages%5C2024-11-11-11-08-57-image.png"></p>
+<h3 id="3-3-扩容etcd成3节点集群"><a href="#3-3-扩容etcd成3节点集群" class="headerlink" title="3.3 扩容etcd成3节点集群"></a>3.3 扩容etcd成3节点集群</h3><p>把etcd3加入到集群命令: <code>etcdctl member add etcd3 --peer-urls=&quot;https://192.168.122.173:2380&quot;</code></p>
+<p>etcd3启动命令:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">etcd \</span><br><span class="line">--name=etcd3 \</span><br><span class="line">--cert-file=/etc/etcdca/etcd.pem \</span><br><span class="line">--key-file=/etc/etcdca/etcd-key.pem \</span><br><span class="line">--peer-cert-file=/etc/etcdca/etcd.pem \</span><br><span class="line">--peer-key-file=/etc/etcdca/etcd-key.pem \</span><br><span class="line">--trusted-ca-file=/etc/etcdca/ca.pem \</span><br><span class="line">--peer-trusted-ca-file=/etc/etcdca/ca.pem \</span><br><span class="line">--initial-advertise-peer-urls=https://192.168.122.173:2380 \</span><br><span class="line">--listen-peer-urls=https://192.168.122.173:2380 \</span><br><span class="line">--listen-client-urls=https://192.168.122.173:2379,http://127.0.0.1:2379 \</span><br><span class="line">--advertise-client-urls=https://192.168.122.173:2379 \</span><br><span class="line">--initial-cluster-token=etcd-cluster-0 \</span><br><span class="line">--initial-cluster=etcd1=https://192.168.122.222:2380,etcd2=https://192.168.122.247:2380,etcd3=https://192.168.122.173:2380 \</span><br><span class="line">--initial-cluster-state=existing \</span><br><span class="line">--data-dir=/data/etcdnew \</span><br><span class="line">--wal-dir= \</span><br><span class="line">--snapshot-count=50000 \</span><br><span class="line">--auto-compaction-retention=1 \</span><br><span class="line">--auto-compaction-mode=periodic \</span><br><span class="line">--max-request-bytes=10485760 \</span><br><span class="line">--log-level=info</span><br></pre></td></tr></table></figure>
+
+<p>启动完成后查看集群的状态:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">etcdctl --endpoints=https://192.168.122.247:2379,https://192.168.122.222:2379,https://192.168.122.173:2379 --cacert=/etc/etcdca/ca.pem --cert=/etc/etcdca/etcd.pem --key=/etc/etcdca/etcd-key.pem --write-out=table endpoint status</span><br></pre></td></tr></table></figure>
+
+
+
+<img title="" src="file:///images/2024-11-11-11-25-46-image.png" alt="" data-align="inline">
+
+<h3 id="3-4-测试宕节点情况下集群的状态"><a href="#3-4-测试宕节点情况下集群的状态" class="headerlink" title="3.4 测试宕节点情况下集群的状态"></a>3.4 测试宕节点情况下集群的状态</h3><p><strong>1个节点宕机并且把数据清理</strong></p>
+<p>恢复步骤: 把节点从member成员里移除，再执行下扩容节点的步骤，扩容成功后数据会自动同步，无需手动restore db。</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://www.kakasu.cn/2024/11/07/%E5%88%9B%E5%BB%BA%E8%87%AA%E7%AD%BE%E5%90%8D%E8%AF%81%E4%B9%A6%E5%87%A0%E7%A7%8D%E6%96%B9%E5%BC%8F/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -210,10 +401,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2024-11-07 14:34:30 / 修改时间：15:07:49" itemprop="dateCreated datePublished" datetime="2024-11-07T14:34:30+08:00">2024-11-07</time>
+              <time title="创建时间：2024-11-07 14:34:30" itemprop="dateCreated datePublished" datetime="2024-11-07T14:34:30+08:00">2024-11-07</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-11-08 09:32:33" itemprop="dateModified" datetime="2024-11-08T09:32:33+08:00">2024-11-08</time>
+              </span>
 
           
 
@@ -322,7 +519,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2024-10-25 14:29:10" itemprop="dateModified" datetime="2024-10-25T14:29:10+08:00">2024-10-25</time>
+                <time title="修改时间：2024-11-13 21:08:53" itemprop="dateModified" datetime="2024-11-13T21:08:53+08:00">2024-11-13</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -558,8 +755,6 @@
 <p>解决方案：</p>
 <p>根据实际网络环境将rp_filter设置为0或2：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ sysctl -w net.ipv4.conf.all.rp_filter=2或</span><br><span class="line">$ sysctl -w net.ipv4.conf.eth0.rp_filter=2</span><br></pre></td></tr></table></figure>
-
-
 
 <h3 id="防火墙丢包"><a href="#防火墙丢包" class="headerlink" title="防火墙丢包"></a>防火墙丢包</h3><p><strong>客户设置规则导致丢包</strong></p>
 <p>查看：</p>
@@ -940,7 +1135,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">2</span>
+          <span class="site-state-item-count">4</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -953,7 +1148,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-count">2</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
