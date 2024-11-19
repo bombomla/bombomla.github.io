@@ -24,7 +24,7 @@
 <p>因为是已存在集群–initial-cluster-state&#x3D;existing   –initial-cluster中把节点1的地址也加入进去。</p>
 <p>加入成功后查看集群成员:<code>etcdctl member list</code></p>
 <p>查看集群状态: <code>etcdctl --endpoints=https://192.168.122.247:2379,https://192.168.122.222:2379 --cacert=/etc/etcdca/ca.pem --cert=/etc/etcdca/etcd.pem --key=/etc/etcdca/etcd-key.pem --write-out=table endpoint status</code></p>
-<p><img src="/%5Cimages%5C2024-11-11-11-08-57-image.png"></p>
+<p><img src="/images/2024-11-11-11-08-57-image.png"></p>
 <h3 id="3-3-扩容etcd成3节点集群"><a href="#3-3-扩容etcd成3节点集群" class="headerlink" title="3.3 扩容etcd成3节点集群"></a>3.3 扩容etcd成3节点集群</h3><p>把etcd3加入到集群命令: <code>etcdctl member add etcd3 --peer-urls=&quot;https://192.168.122.173:2380&quot;</code></p>
 <p>etcd3启动命令:</p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">etcd \</span><br><span class="line">--name=etcd3 \</span><br><span class="line">--cert-file=/etc/etcdca/etcd.pem \</span><br><span class="line">--key-file=/etc/etcdca/etcd-key.pem \</span><br><span class="line">--peer-cert-file=/etc/etcdca/etcd.pem \</span><br><span class="line">--peer-key-file=/etc/etcdca/etcd-key.pem \</span><br><span class="line">--trusted-ca-file=/etc/etcdca/ca.pem \</span><br><span class="line">--peer-trusted-ca-file=/etc/etcdca/ca.pem \</span><br><span class="line">--initial-advertise-peer-urls=https://192.168.122.173:2380 \</span><br><span class="line">--listen-peer-urls=https://192.168.122.173:2380 \</span><br><span class="line">--listen-client-urls=https://192.168.122.173:2379,http://127.0.0.1:2379 \</span><br><span class="line">--advertise-client-urls=https://192.168.122.173:2379 \</span><br><span class="line">--initial-cluster-token=etcd-cluster-0 \</span><br><span class="line">--initial-cluster=etcd1=https://192.168.122.222:2380,etcd2=https://192.168.122.247:2380,etcd3=https://192.168.122.173:2380 \</span><br><span class="line">--initial-cluster-state=existing \</span><br><span class="line">--data-dir=/data/etcdnew \</span><br><span class="line">--wal-dir= \</span><br><span class="line">--snapshot-count=50000 \</span><br><span class="line">--auto-compaction-retention=1 \</span><br><span class="line">--auto-compaction-mode=periodic \</span><br><span class="line">--max-request-bytes=10485760 \</span><br><span class="line">--log-level=info</span><br></pre></td></tr></table></figure>
@@ -32,9 +32,7 @@
 <p>启动完成后查看集群的状态:</p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">etcdctl --endpoints=https://192.168.122.247:2379,https://192.168.122.222:2379,https://192.168.122.173:2379 --cacert=/etc/etcdca/ca.pem --cert=/etc/etcdca/etcd.pem --key=/etc/etcdca/etcd-key.pem --write-out=table endpoint status</span><br></pre></td></tr></table></figure>
 
-
-
-<img title="" src="file:///images/2024-11-11-11-25-46-image.png" alt="" data-align="inline">
+<img title="" src="images/2024-11-11-11-25-46-image.png" alt="" data-align="inline">
 
 <h3 id="3-4-测试宕节点情况下集群的状态"><a href="#3-4-测试宕节点情况下集群的状态" class="headerlink" title="3.4 测试宕节点情况下集群的状态"></a>3.4 测试宕节点情况下集群的状态</h3><p><strong>1个节点宕机并且把数据清理</strong></p>
 <p>恢复步骤: 把节点从member成员里移除，再执行下扩容节点的步骤，扩容成功后数据会自动同步，无需手动restore db。</p>
@@ -69,57 +67,6 @@
       <tags>
         <tag>k8s网络问题</tag>
       </tags>
-  </entry>
-  <entry>
-    <title>创建自签名证书几种方式</title>
-    <url>/2024/11/07/%E5%88%9B%E5%BB%BA%E8%87%AA%E7%AD%BE%E5%90%8D%E8%AF%81%E4%B9%A6%E5%87%A0%E7%A7%8D%E6%96%B9%E5%BC%8F/</url>
-    <content><![CDATA[<h1 id="一、使用cfssl工具创建自签名证书"><a href="#一、使用cfssl工具创建自签名证书" class="headerlink" title="一、使用cfssl工具创建自签名证书"></a>一、使用cfssl工具创建自签名证书</h1><h2 id="环境准备"><a href="#环境准备" class="headerlink" title="环境准备"></a>环境准备</h2><ol>
-<li><p>确保已安装 <code>cfssl</code> 和 <code>cfssljson</code>。可以通过以下命令安装</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 下载 cfssl 和 cfssljson 可执行文件</span><br><span class="line">wget -O /usr/local/bin/cfssl https://pkg.cfssl.org/R1.2/cfssl_linux-amd64</span><br><span class="line">wget -O /usr/local/bin/cfssljson https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64</span><br><span class="line"></span><br><span class="line"># 赋予执行权限</span><br><span class="line">chmod +x /usr/local/bin/cfssl /usr/local/bin/cfssljson</span><br></pre></td></tr></table></figure></li>
-</ol>
-<h2 id="步骤-1：生成根-CA-证书"><a href="#步骤-1：生成根-CA-证书" class="headerlink" title="步骤 1：生成根 CA 证书"></a>步骤 1：生成根 CA 证书</h2><p>首先创建一个自签名根 CA 证书，这可以用于签发后续的服务端证书。</p>
-<ol>
-<li><p>创建 CA 配置文件 <code>ca-config.json</code>：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;signing&quot;: &#123;</span><br><span class="line">    &quot;default&quot;: &#123;</span><br><span class="line">      &quot;expiry&quot;: &quot;867240h&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    &quot;profiles&quot;: &#123;</span><br><span class="line">      &quot;www&quot;: &#123;</span><br><span class="line">        &quot;expiry&quot;: &quot;867240h&quot;,</span><br><span class="line">        &quot;usages&quot;: [&quot;signing&quot;, &quot;key encipherment&quot;, &quot;server auth&quot;, &quot;client auth&quot;]</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>注意文件中的证书失效时间。</p>
-<p>2.创建 CA 请求文件 <code>ca-csr.json</code>：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;CN&quot;: &quot;My CA&quot;,</span><br><span class="line">  &quot;key&quot;: &#123;</span><br><span class="line">    &quot;algo&quot;: &quot;rsa&quot;,</span><br><span class="line">    &quot;size&quot;: 2048</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;names&quot;: [</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;C&quot;: &quot;US&quot;,</span><br><span class="line">      &quot;L&quot;: &quot;San Francisco&quot;,</span><br><span class="line">      &quot;O&quot;: &quot;My Organization&quot;,</span><br><span class="line">      &quot;OU&quot;: &quot;My Org Unit&quot;,</span><br><span class="line">      &quot;ST&quot;: &quot;California&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>3.使用cfssl生成CA证书和私钥:</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">cfssl gencert -initca ca-csr.json | cfssljson -bare ca</span><br></pre></td></tr></table></figure></li>
-</ol>
-<h2 id="步骤-2：生成-NGINX-服务器证书"><a href="#步骤-2：生成-NGINX-服务器证书" class="headerlink" title="步骤 2：生成 NGINX 服务器证书"></a>步骤 2：生成 NGINX 服务器证书</h2><ol>
-<li><p>创建服务器证书的请求文件 <code>server-csr.json</code>：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;CN&quot;: &quot;my-nginx-server&quot;,</span><br><span class="line">  &quot;hosts&quot;: [</span><br><span class="line">    &quot;example.com&quot;,</span><br><span class="line">    &quot;www.example.com&quot;,</span><br><span class="line">    &quot;localhost&quot;,</span><br><span class="line">    &quot;127.0.0.1&quot;</span><br><span class="line">  ],</span><br><span class="line">  &quot;key&quot;: &#123;</span><br><span class="line">    &quot;algo&quot;: &quot;rsa&quot;,</span><br><span class="line">    &quot;size&quot;: 2048</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;names&quot;: [</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;C&quot;: &quot;US&quot;,</span><br><span class="line">      &quot;L&quot;: &quot;San Francisco&quot;,</span><br><span class="line">      &quot;O&quot;: &quot;My Organization&quot;,</span><br><span class="line">      &quot;OU&quot;: &quot;My Org Unit&quot;,</span><br><span class="line">      &quot;ST&quot;: &quot;California&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>注意配置文件中的hosts字段要包含域名。</p>
-</li>
-</ol>
-<p>2.使用 <code>cfssl</code> 生成服务器证书：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=www server-csr.json | cfssljson -bare server</span><br></pre></td></tr></table></figure>
-
-<p>生成的文件包括：</p>
-<ul>
-<li><code>server.pem</code>: 服务器证书</li>
-<li><code>server-key.pem</code>: 服务器私钥</li>
-</ul>
-<h1 id="二、使用openssl创建自签名证书"><a href="#二、使用openssl创建自签名证书" class="headerlink" title="二、使用openssl创建自签名证书"></a>二、使用openssl创建自签名证书</h1><p>1.创建 CA 私钥</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ openssl genrsa -out ca.key 2048</span><br></pre></td></tr></table></figure>
-
-<p>2.生成 CA 的自签名证书</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">openssl req \</span><br><span class="line">    -subj &quot;/C=CN/ST=Tianjin/L=Tianjin/O=Mocha/OU=Mocha Software/CN=Server CA/emailAddress=test@mochasoft.com.cn&quot; \</span><br><span class="line">    -new \</span><br><span class="line">    -x509 \</span><br><span class="line">    -days 36500 \</span><br><span class="line">    -key ca.key \</span><br><span class="line">    -out ca.crt</span><br></pre></td></tr></table></figure>
-
-<p>注意生成证书的有效期</p>
-<p>3.生成需要颁发证书的私钥</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ openssl genrsa -out server.key 2048</span><br></pre></td></tr></table></figure>
-
-<p>4.生成要颁发证书的证书签名请求，证书签名请求当中的 Common Name 必须区别于 CA 的证书里面的 Common Name</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ openssl req \</span><br><span class="line">    -subj &quot;/C=CN/ST=Tianjin/L=Tianjin/O=Mocha/OU=Mocha Software/CN=test2.sslpoc.com/emailAddress=test@mochasoft.com.cn&quot; \</span><br><span class="line">    -new \</span><br><span class="line">    -key server.key \</span><br><span class="line">    -out server.csr</span><br></pre></td></tr></table></figure>
-
-<p>5.用 2 创建的 CA 证书给 4 生成的 签名请求 进行签名</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ openssl x509 \</span><br><span class="line">    -req \</span><br><span class="line">    -days 3650 \</span><br><span class="line">    -in server.csr \</span><br><span class="line">    -CA ca.crt \</span><br><span class="line">    -CAkey ca.key \</span><br><span class="line">    -set_serial 01 \</span><br><span class="line">    -out server.crt</span><br></pre></td></tr></table></figure>
-]]></content>
   </entry>
   <entry>
     <title>网络故定位全景指南【转载】</title>
@@ -643,5 +590,56 @@
       <tags>
         <tag>网络丢包问题排查</tag>
       </tags>
+  </entry>
+  <entry>
+    <title>创建自签名证书几种方式</title>
+    <url>/2024/11/07/%E5%88%9B%E5%BB%BA%E8%87%AA%E7%AD%BE%E5%90%8D%E8%AF%81%E4%B9%A6%E5%87%A0%E7%A7%8D%E6%96%B9%E5%BC%8F/</url>
+    <content><![CDATA[<h1 id="一、使用cfssl工具创建自签名证书"><a href="#一、使用cfssl工具创建自签名证书" class="headerlink" title="一、使用cfssl工具创建自签名证书"></a>一、使用cfssl工具创建自签名证书</h1><h2 id="环境准备"><a href="#环境准备" class="headerlink" title="环境准备"></a>环境准备</h2><ol>
+<li><p>确保已安装 <code>cfssl</code> 和 <code>cfssljson</code>。可以通过以下命令安装</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 下载 cfssl 和 cfssljson 可执行文件</span><br><span class="line">wget -O /usr/local/bin/cfssl https://pkg.cfssl.org/R1.2/cfssl_linux-amd64</span><br><span class="line">wget -O /usr/local/bin/cfssljson https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64</span><br><span class="line"></span><br><span class="line"># 赋予执行权限</span><br><span class="line">chmod +x /usr/local/bin/cfssl /usr/local/bin/cfssljson</span><br></pre></td></tr></table></figure></li>
+</ol>
+<h2 id="步骤-1：生成根-CA-证书"><a href="#步骤-1：生成根-CA-证书" class="headerlink" title="步骤 1：生成根 CA 证书"></a>步骤 1：生成根 CA 证书</h2><p>首先创建一个自签名根 CA 证书，这可以用于签发后续的服务端证书。</p>
+<ol>
+<li><p>创建 CA 配置文件 <code>ca-config.json</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;signing&quot;: &#123;</span><br><span class="line">    &quot;default&quot;: &#123;</span><br><span class="line">      &quot;expiry&quot;: &quot;867240h&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    &quot;profiles&quot;: &#123;</span><br><span class="line">      &quot;www&quot;: &#123;</span><br><span class="line">        &quot;expiry&quot;: &quot;867240h&quot;,</span><br><span class="line">        &quot;usages&quot;: [&quot;signing&quot;, &quot;key encipherment&quot;, &quot;server auth&quot;, &quot;client auth&quot;]</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>注意文件中的证书失效时间。</p>
+<p>2.创建 CA 请求文件 <code>ca-csr.json</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;CN&quot;: &quot;My CA&quot;,</span><br><span class="line">  &quot;key&quot;: &#123;</span><br><span class="line">    &quot;algo&quot;: &quot;rsa&quot;,</span><br><span class="line">    &quot;size&quot;: 2048</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;names&quot;: [</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;C&quot;: &quot;US&quot;,</span><br><span class="line">      &quot;L&quot;: &quot;San Francisco&quot;,</span><br><span class="line">      &quot;O&quot;: &quot;My Organization&quot;,</span><br><span class="line">      &quot;OU&quot;: &quot;My Org Unit&quot;,</span><br><span class="line">      &quot;ST&quot;: &quot;California&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>3.使用cfssl生成CA证书和私钥:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">cfssl gencert -initca ca-csr.json | cfssljson -bare ca</span><br></pre></td></tr></table></figure></li>
+</ol>
+<h2 id="步骤-2：生成-NGINX-服务器证书"><a href="#步骤-2：生成-NGINX-服务器证书" class="headerlink" title="步骤 2：生成 NGINX 服务器证书"></a>步骤 2：生成 NGINX 服务器证书</h2><ol>
+<li><p>创建服务器证书的请求文件 <code>server-csr.json</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;CN&quot;: &quot;my-nginx-server&quot;,</span><br><span class="line">  &quot;hosts&quot;: [</span><br><span class="line">    &quot;example.com&quot;,</span><br><span class="line">    &quot;www.example.com&quot;,</span><br><span class="line">    &quot;localhost&quot;,</span><br><span class="line">    &quot;127.0.0.1&quot;</span><br><span class="line">  ],</span><br><span class="line">  &quot;key&quot;: &#123;</span><br><span class="line">    &quot;algo&quot;: &quot;rsa&quot;,</span><br><span class="line">    &quot;size&quot;: 2048</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;names&quot;: [</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;C&quot;: &quot;US&quot;,</span><br><span class="line">      &quot;L&quot;: &quot;San Francisco&quot;,</span><br><span class="line">      &quot;O&quot;: &quot;My Organization&quot;,</span><br><span class="line">      &quot;OU&quot;: &quot;My Org Unit&quot;,</span><br><span class="line">      &quot;ST&quot;: &quot;California&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>注意配置文件中的hosts字段要包含域名。</p>
+</li>
+</ol>
+<p>2.使用 <code>cfssl</code> 生成服务器证书：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=www server-csr.json | cfssljson -bare server</span><br></pre></td></tr></table></figure>
+
+<p>生成的文件包括：</p>
+<ul>
+<li><code>server.pem</code>: 服务器证书</li>
+<li><code>server-key.pem</code>: 服务器私钥</li>
+</ul>
+<h1 id="二、使用openssl创建自签名证书"><a href="#二、使用openssl创建自签名证书" class="headerlink" title="二、使用openssl创建自签名证书"></a>二、使用openssl创建自签名证书</h1><p>1.创建 CA 私钥</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ openssl genrsa -out ca.key 2048</span><br></pre></td></tr></table></figure>
+
+<p>2.生成 CA 的自签名证书</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">openssl req \</span><br><span class="line">    -subj &quot;/C=CN/ST=Tianjin/L=Tianjin/O=Mocha/OU=Mocha Software/CN=Server CA/emailAddress=test@mochasoft.com.cn&quot; \</span><br><span class="line">    -new \</span><br><span class="line">    -x509 \</span><br><span class="line">    -days 36500 \</span><br><span class="line">    -key ca.key \</span><br><span class="line">    -out ca.crt</span><br></pre></td></tr></table></figure>
+
+<p>注意生成证书的有效期</p>
+<p>3.生成需要颁发证书的私钥</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ openssl genrsa -out server.key 2048</span><br></pre></td></tr></table></figure>
+
+<p>4.生成要颁发证书的证书签名请求，证书签名请求当中的 Common Name 必须区别于 CA 的证书里面的 Common Name</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ openssl req \</span><br><span class="line">    -subj &quot;/C=CN/ST=Tianjin/L=Tianjin/O=Mocha/OU=Mocha Software/CN=test2.sslpoc.com/emailAddress=test@mochasoft.com.cn&quot; \</span><br><span class="line">    -new \</span><br><span class="line">    -key server.key \</span><br><span class="line">    -out server.csr</span><br></pre></td></tr></table></figure>
+
+<p>5.用 2 创建的 CA 证书给 4 生成的 签名请求 进行签名</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ openssl x509 \</span><br><span class="line">    -req \</span><br><span class="line">    -days 3650 \</span><br><span class="line">    -in server.csr \</span><br><span class="line">    -CA ca.crt \</span><br><span class="line">    -CAkey ca.key \</span><br><span class="line">    -set_serial 01 \</span><br><span class="line">    -out server.crt</span><br></pre></td></tr></table></figure>
+]]></content>
   </entry>
 </search>
